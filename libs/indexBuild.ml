@@ -1057,7 +1057,7 @@ let load_loc_impl parents filename cmt_contents =
       debug " %.3fs\n%!" (chrono());
       None
 
-let load_cmi ?(qualify=false) root t modul orig_file =
+let load_cmi ~qualify root t modul orig_file =
   IndexTrie.map_subtree t (string_to_key modul)
     (fun t ->
        let file = orig_file_name orig_file in
@@ -1123,7 +1123,7 @@ let load_cmi ?(qualify=false) root t modul orig_file =
       in
       IndexTrie.graft_lazy t [dot] children)
 
-let load_cmt ?(qualify=false) root t modul orig_file =
+let load_cmt ~qualify root t modul orig_file =
   IndexTrie.map_subtree t (string_to_key modul)
     (fun t ->
        let cmt_file = orig_file_name orig_file in
@@ -1224,13 +1224,13 @@ let load_cmt ?(qualify=false) root t modul orig_file =
 let debug_file_counter = ref 0
 let debug_dir_counter = ref 0
 
-let load_file root t modul f =
+let load_file ~qualify root t modul f =
   incr debug_file_counter;
   match f with
-  | Cmi _ -> load_cmi root t modul f
-  | Cmt _ | Cmti _ -> load_cmt root t modul f
+  | Cmi _ -> load_cmi ~qualify root t modul f
+  | Cmt _ | Cmti _ -> load_cmt ~qualify root t modul f
 
-let load_files t dirfiles =
+let load_files ~qualify t dirfiles =
   let split_filename file =
     try
       let i = String.rindex file '.' in
@@ -1273,13 +1273,13 @@ let load_files t dirfiles =
             in
             let file = List.fold_left choose_file f1 fs in
             let modul = key_to_string modul in
-            load_file root t modul file)
+            load_file ~qualify root t modul file)
       modules
       t
   )
   in Lazy.force root
 
-let load_dirs t dirs =
+let load_dirs ~qualify t dirs =
   let dirfiles =
     List.fold_left (fun acc dir ->
         incr debug_dir_counter;
@@ -1290,9 +1290,9 @@ let load_dirs t dirs =
       []
       (List.rev dirs)
   in
-  load_files t dirfiles
+  load_files ~qualify t dirfiles
 
-let load paths =
+let load ~qualify paths =
   let t = IndexTrie.create () in
   let t =
     List.fold_left
@@ -1302,7 +1302,7 @@ let load paths =
       IndexPredefined.all
   in
   let chrono = timer () in
-  let t = load_dirs t paths in
+  let t = load_dirs ~qualify t paths in
   debug "Modules directory loaded in %.3fs (%d files in %d directories)...\n"
     (chrono()) !debug_file_counter !debug_dir_counter;
 #if OCAML_VERSION >= (4,07,0)
@@ -1311,7 +1311,7 @@ let load paths =
   open_module ~cleanup_path:true t ["Pervasives"]
 #endif
 
-let fully_open_module ?(cleanup_path=false) t path =
+let fully_open_module ?(cleanup_path=false) ~qualify t path =
   let base_path = match path with
     | m::_ -> string_to_key m
     | [] -> []
@@ -1340,7 +1340,7 @@ let fully_open_module ?(cleanup_path=false) t path =
           if not (Sys.file_exists f) then mod_trie
           else
             let dir,base = Filename.dirname f, Filename.basename f in
-            let t = load_files IndexTrie.empty [dir,base] in
+            let t = load_files ~qualify IndexTrie.empty [dir,base] in
             let t = IndexTrie.sub t tpath in
             IndexTrie.merge ~values:merge mod_trie t
       | Cmt _ -> mod_trie
@@ -1355,6 +1355,6 @@ let fully_open_module ?(cleanup_path=false) t path =
   in
   overriding_merge t mod_trie
 
-let add_file t file =
+let add_file ~qualify t file =
   let dir, file = Filename.dirname file, Filename.basename file in
-  load_files t [dir,file]
+  load_files ~qualify t [dir,file]

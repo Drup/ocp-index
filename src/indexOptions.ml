@@ -254,12 +254,12 @@ let common_opts ?(default_filter = default_filter) () : t Term.t =
     if dirs = [] then
       failwith "Failed to guess OCaml / opam lib dirs. Please use `-I'";
     let dirs = LibIndex.Misc.unique_subdirs dirs in
-    let info = LibIndex.load dirs in
+    let info = LibIndex.load ~qualify:false dirs in
     let info =
       List.fold_left (LibIndex.open_module ~cleanup_path:true) info opens
     in
     let info =
-      List.fold_left (LibIndex.fully_open_module ~cleanup_path:true)
+      List.fold_left (LibIndex.fully_open_module ~qualify:false ~cleanup_path:true)
         info full_opens
     in
     let info = match context with
